@@ -6,23 +6,32 @@ _target=arm-none-eabi
 
 pkgbase=mingw-w64-${_target}-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
-pkgver=2.24
+pkgver=2.34
 pkgrel=1
 pkgdesc="GNU Tools for ARM Embedded Processors - Binutils (mingw-w64)"
 arch=('any')
 url="https://www.gnu.org/software/binutils/"
 license=('GPL')
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
-makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
+depends=(zlib)
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" 
+             make
+             texinfo)
 options=('staticlibs')
-source=("https://mirrors.kernel.org/sources.redhat.com/${_realname}/releases/${_realname}-${pkgver}.tar.bz2")
-sha256sums=('e5e8c5be9664e7f7f96e0d09919110ab5ad597794f5b1809871177a0f0f14137')
+source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-$pkgver.tar.bz2)
+sha256sums=('89f010078b6cf69c23c27897d686055ab89b198dddf819efb0a4f2c38a0b36e6')
+			  
+			  
+prepare() {
+  cd "${srcdir}/${_realname}-${pkgver}"
+  sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" libiberty/configure
+}
 
 build() {
   if check_option "debug" "y"; then
     CFLAGS+=" -g -O0"
   fi
-  cd $srcdir
+  cd "${srcdir}"
   rm -rf build-${MINGW_CHOST}
   mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
   ../${_realname}-${pkgver}/configure \
@@ -31,19 +40,32 @@ build() {
     --target="${_target}" \
     --prefix="${MINGW_PREFIX}" \
     --disable-werror \
-    --disable-lto \
     --with-sysroot="${MINGW_PREFIX}" \
-    --disable-nls \
-    --disable-rpath \
     --enable-multilib \
-    --enable-interwork
+    --enable-interwork \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --disable-nls \
+    --enable-ld=default \
+    --enable-gold \
+    --enable-plugins \
+    --enable-deterministic-archives  
+
   make
 }
 
+check() {
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  
+  # unset LDFLAGS as testsuite makes assumptions about which ones are active
+  # do not abort on errors - manually check log files
+  make LDFLAGS="" -k check || true
+}
+
 package() {
-  cd ${srcdir}/build-${MINGW_CHOST}
-  make DESTDIR=${pkgdir} install
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  make DESTDIR="${pkgdir}" install
 
   # Remove unwanted files
-  rm -rf ${pkgdir}${MINGW_PREFIX}/share/info
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
 }
