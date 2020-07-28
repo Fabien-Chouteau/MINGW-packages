@@ -1,7 +1,7 @@
 # Maintainer: Carlos Antunes <cmantunes@gmail.com>
 # Contributed by: nanodude
 
-_realname=gcc
+_realname=gcc-base
 _target=arm-none-eabi
 
 pkgbase=mingw-w64-${_target}-${_realname}
@@ -9,13 +9,11 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
 pkgver=10.1.0
 _islver=0.22
 pkgrel=1
-pkgdesc="The GNU Compiler Collection - cross compiler for ARM EABI (bare-metal) target"
+pkgdesc="The GNU Compiler Collection - bootstrap cross compiler for ARM EABI (bare-metal) target"
 arch=('any')
 url='https://gcc.gnu.org/'
 license=(GPL LGPL FDL)
-groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
-depends=("${MINGW_PACKAGE_PREFIX}-${_target}-newlib"
-         "${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
+depends=("${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
 		 "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
 options=('staticlibs' '!debug' '!strip')
@@ -24,14 +22,6 @@ source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
 sha256sums=('b6898a23844b656f1b68691c5c012036c2e694ac4b53a8918d4712ad876e7ea2'
             'b21d354acd613a91cb88328753ec3aaeb174d6af042d89c5fcf3bbcced370751')
-
-#source=('gcc-arm-embedded.tar.bz2::https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-src.tar.bz2'
-#	'010-gcc-isl-0.13.patch'
-#	'020-gcc-auto-host-screwup.patch')
-#sha256sums=('09519946642d5366ab739a89d3388b2ea333cd7dc50192bab3736a9593af83e6'
-#            '8e8da71e6e6b347dd7fc7f7938bf9af22be031ad8916749fa6c368f87d8891f0'
-#            'b5e826a0dc477f04233e68cc7d0dfc4f498c36e16c5cc3751cb52bcd9a7f0c24')
-#noextract=('gcc-arm-embedded.tar.bz2')
 
 prepare() {
 
@@ -62,6 +52,7 @@ build() {
     --prefix="${MINGW_PREFIX}" \
     --with-sysroot="${MINGW_PREFIX}" \
     --with-native-system-header-dir=/include \
+    --libexecdir=${MINGW_PREFIX}/lib \
     --enable-languages="c" \
     --enable-plugins \
     --disable-decimal-float \
@@ -78,25 +69,20 @@ build() {
     --with-gnu-as \
     --with-gnu-ld \
     --with-system-zlib \
-    --with-newlib \
     --with-python-dir="share/${_target}-${_realname}" \
     --with-libelf \
     --enable-gnu-indirect-function \
     --with-python-dir="share/${_target}-${_realname}" \
     --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
     --with-host-libstdcxx="-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
-    --with-multilib-list=rmprofile
+    --disable-multilib
 
-#    --disable-isl-version-check \
-#    --disable-cloog-version-check \
-#    --with-multilib-list="armv6-m,armv7-m,armv7e-m,armv7-r" \
-
-  make
+  make all-gcc
 }
 
 package() {
   cd ${srcdir}/build-${MINGW_CHOST}
-  make -j1 DESTDIR=${pkgdir} install
+  make -j1 DESTDIR=${pkgdir} install-gcc
 
   # Remove files that conflict with host
   rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
