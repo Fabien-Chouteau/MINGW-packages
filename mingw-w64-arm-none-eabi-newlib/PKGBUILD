@@ -15,8 +15,15 @@ license=('Various')
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 makedepends=("${MINGW_PACKAGE_PREFIX}-${_target}-gcc-base")
 options=('staticlibs' '!strip' '!emptydirs')
-source=(https://sourceware.org/pub/newlib/newlib-$pkgver.tar.gz)
+source=(https://sourceware.org/pub/${_realname}/${_realname}-$pkgver.tar.gz)
 sha256sums=('58dd9e3eaedf519360d92d84205c3deef0b3fc286685d1c562e245914ef72c66')
+noextract=("${_realname}-${pkgver}.tar.gz")
+
+prepare() {
+  [[ -d "${_realname}-${pkgver}" ]] && rm -rf "${_realname}-${pkgver}"
+  tar zxf "${srcdir}/${_realname}-${pkgver}.tar.gz" || true
+  MSYS=winsymlinks:lnk tar zxf "${srcdir}/${_realname}-${pkgver}.tar.gz"
+}
 
 build() {
   if check_option "debug" "y"; then
