@@ -6,51 +6,43 @@ _target=arm-none-eabi
 
 pkgbase=mingw-w64-${_target}-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
-pkgver=7.6.0
+pkgver=9.2
 pkgrel=1
-pkgdesc="GNU Tools for ARM Embedded Processors - GDB (mingw-w64)"
+pkgdesc="The GNU Debugger for the ARM EABI (bare-metal) target"
 arch=('any')
-url="https://launchpad.net/gcc-arm-embedded"
-license=('GPL' 'Various')
+url="https://www.gnu.org/software/gdb/"
+license=('GPL3')
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-readline"
-         "${MINGW_PACKAGE_PREFIX}-zlib")
+         "${MINGW_PACKAGE_PREFIX}-zlib"
+         "${MINGW_PACKAGE_PREFIX}-xz"
+         "${MINGW_PACKAGE_PREFIX}-ncurses"
+         "${MINGW_PACKAGE_PREFIX}-expat"
+         "${MINGW_PACKAGE_PREFIX}-python"
+         "${MINGW_PACKAGE_PREFIX}-mpfr")
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
 options=('staticlibs' '!debug' 'strip')
-source=('gcc-arm-embedded.tar.bz2::https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-src.tar.bz2'
-        '10-remove-duplicate-tputs.patch')
-sha256sums=('09519946642d5366ab739a89d3388b2ea333cd7dc50192bab3736a9593af83e6'
-            '80c719e0d91b4c712e03a2dd7f2d5197a16d32465d4514d904f4c910cfddb997')
-noextract=('gcc-arm-embedded.tar.bz2')
 
-prepare() {
-  # Extract packages from archive
-  rm -rf ${srcdir}/tmp
-  mkdir ${srcdir}/tmp && cd ${srcdir}/tmp
-  tar  xvf ../../gcc-arm-embedded.tar.bz2 --strip-components=2
-
-  # Copy and extract GDB package
-  cp gdb.tar.bz2 ${srcdir}
-  cd ${srcdir}
-  tar xvf gdb.tar.bz2
-
-  # GDB: remove duplicate tputs
-  patch -p1 -i "${srcdir}/10-remove-duplicate-tputs.patch"
-}
+source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-$pkgver.tar.xz)
+sha256sums=('360cd7ae79b776988e89d8f9a01c985d0b1fa21c767a4295e5f88cb49175c555')
 
 build() {
   # Build GDB
   cd $srcdir
   rm -rf build-${MINGW_CHOST}
   mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
-  ../${_realname}/configure \
+  ../${_realname}-${pkgver}/configure \
     --build="${MINGW_CHOST}" \
     --host="${MINGW_CHOST}" \
     --target="${_target}" \
     --prefix="${MINGW_PREFIX}" \
-    --disable-werror \
+    --enable-languages=c,ada \
+    --enable-multilib \
+    --enable-interwork \
+    --with-system-readline \
     --disable-nls \
-    --with-system-readline
+    --with-python="${MINGW_PREFIX}/bin/python"
+
   make
 }
 
