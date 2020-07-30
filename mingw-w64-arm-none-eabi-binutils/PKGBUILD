@@ -15,7 +15,6 @@ license=('GPL')
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 depends=(zlib)
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" 
-             make
              texinfo)
 options=('staticlibs')
 source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-$pkgver.tar.bz2)
