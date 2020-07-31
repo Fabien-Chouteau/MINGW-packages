@@ -1,8 +1,11 @@
 # Maintainer: Carlos Antunes <cmantunes@gmail.com>
 # Contributed by: nanodude
+# ArchLinux Contributor: 
 
 _realname=gcc
 _target=arm-none-eabi
+
+_enable_ada=yes
 
 pkgbase=mingw-w64-${_target}-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
@@ -17,7 +20,8 @@ groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-${_target}-newlib"
          "${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
 		 "${MINGW_PACKAGE_PREFIX}-zlib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
+             $([[ "$_enable_ada" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-gcc-ada"))
 
 # This package conflicts with the cross gcc-base used to compile newlib
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_target}-gcc-base")
@@ -50,6 +54,12 @@ build() {
   unset CFLAGS
   unset CXXFLAGS
   CFLAGS="-g -O3 -fdata-sections -ffunction-sections"
+  
+  local _languages="c"
+  if [ "$_enable_ada" == "yes" ]; then
+    _languages+=",ada"
+  fi
+
   CXXFLAGS="${CFLAGS}"
   ../gcc-${pkgver}/configure \
     --build="${MINGW_CHOST}" \
@@ -58,7 +68,7 @@ build() {
     --prefix="${MINGW_PREFIX}" \
     --with-sysroot="${MINGW_PREFIX}" \
     --with-native-system-header-dir=/include \
-    --enable-languages="c" \
+    --enable-languages=${_languages} \
     --enable-plugins \
     --disable-decimal-float \
     --disable-libffi \
@@ -71,6 +81,7 @@ build() {
     --disable-shared \
     --disable-threads \
     --disable-tls \
+    --disable-libada \
     --with-gnu-as \
     --with-gnu-ld \
     --with-system-zlib \
@@ -84,6 +95,11 @@ build() {
     --with-multilib-list=rmprofile
 
   make
+
+  if [ "$_enable_ada" == "yes" ]; then
+    make -C gcc cross-gnattools
+    make -C gcc ada.all.cross
+  fi
 }
 
 package() {
