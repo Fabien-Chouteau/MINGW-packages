@@ -1,10 +1,8 @@
 # Maintainer: Carlos Antunes <cmantunes@gmail.com>
 # Contributed by: nanodude
-# ArchLinux Contributor: 
 
 _realname=gcc
 _target=arm-none-eabi
-
 _enable_ada=yes
 
 pkgbase=mingw-w64-${_target}-${_realname}
@@ -17,6 +15,10 @@ arch=('any')
 url='https://gcc.gnu.org/'
 license=(GPL LGPL FDL)
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
+
+# Ada support is provided in the same package
+provides=("${MINGW_PACKAGE_PREFIX}-${_target}-ada")
+
 depends=("${MINGW_PACKAGE_PREFIX}-${_target}-newlib"
          "${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
 		 "${MINGW_PACKAGE_PREFIX}-zlib")
