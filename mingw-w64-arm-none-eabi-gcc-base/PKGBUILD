@@ -1,36 +1,21 @@
 # Maintainer: Carlos Antunes <cmantunes@gmail.com>
 # Contributed by: nanodude
-# ArchLinux Contributor: 
 
-_realname=gcc
+_realname=gcc-base
 _target=arm-none-eabi
-_enable_ada=yes
-
-_enable_ada=yes
 
 pkgbase=mingw-w64-${_target}-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
 pkgver=10.1.0
 _islver=0.22
 pkgrel=1
-pkgdesc="The GNU Compiler Collection - cross compiler for ARM EABI (bare-metal) target"
+pkgdesc="The GNU Compiler Collection - bootstrap cross compiler for ARM EABI (bare-metal) target"
 arch=('any')
 url='https://gcc.gnu.org/'
 license=(GPL LGPL FDL)
-groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
-
-# Ada support is provided in the same package
-provides=("${MINGW_PACKAGE_PREFIX}-${_target}-ada")
-
-depends=("${MINGW_PACKAGE_PREFIX}-${_target}-newlib"
-         "${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
+depends=("${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
 		 "${MINGW_PACKAGE_PREFIX}-zlib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
-             $([[ "$_enable_ada" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-gcc-ada"))
-
-# This package conflicts with the cross gcc-base used to compile newlib
-conflicts=("${MINGW_PACKAGE_PREFIX}-${_target}-gcc-base")
-
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
 options=('staticlibs' '!debug' '!strip')
 
 source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz
@@ -59,12 +44,6 @@ build() {
   unset CFLAGS
   unset CXXFLAGS
   CFLAGS="-g -O3 -fdata-sections -ffunction-sections"
-  
-  local _languages="c"
-  if [ "$_enable_ada" == "yes" ]; then
-    _languages+=",ada"
-  fi
-
   CXXFLAGS="${CFLAGS}"
   ../gcc-${pkgver}/configure \
     --build="${MINGW_CHOST}" \
@@ -73,7 +52,8 @@ build() {
     --prefix="${MINGW_PREFIX}" \
     --with-sysroot="${MINGW_PREFIX}" \
     --with-native-system-header-dir=/include \
-    --enable-languages=${_languages} \
+    --libexecdir=${MINGW_PREFIX}/lib \
+    --enable-languages="c" \
     --enable-plugins \
     --disable-decimal-float \
     --disable-libffi \
@@ -86,30 +66,23 @@ build() {
     --disable-shared \
     --disable-threads \
     --disable-tls \
-    --disable-libada \
     --with-gnu-as \
     --with-gnu-ld \
     --with-system-zlib \
-    --with-newlib \
     --with-python-dir="share/${_target}-${_realname}" \
     --with-libelf \
     --enable-gnu-indirect-function \
     --with-python-dir="share/${_target}-${_realname}" \
     --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
     --with-host-libstdcxx="-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
-    --with-multilib-list=rmprofile
+    --disable-multilib
 
-  make
-
-  if [ "$_enable_ada" == "yes" ]; then
-    make -C gcc cross-gnattools
-    make -C gcc ada.all.cross
-  fi
+  make all-gcc
 }
 
 package() {
   cd ${srcdir}/build-${MINGW_CHOST}
-  make -j1 DESTDIR=${pkgdir} install
+  make -j1 DESTDIR=${pkgdir} install-gcc
 
   # Remove files that conflict with host
   rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
