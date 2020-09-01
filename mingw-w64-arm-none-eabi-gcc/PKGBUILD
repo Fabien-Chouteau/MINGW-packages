@@ -1,8 +1,11 @@
 # Maintainer: Carlos Antunes <cmantunes@gmail.com>
 # Contributed by: nanodude
+# ArchLinux Contributor: 
 
 _realname=gcc
 _target=arm-none-eabi
+_enable_ada=yes
+
 _enable_ada=yes
 
 pkgbase=mingw-w64-${_target}-${_realname}
