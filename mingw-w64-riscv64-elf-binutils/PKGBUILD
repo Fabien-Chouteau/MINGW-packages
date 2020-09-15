@@ -1,0 +1,69 @@
+# Maintainer: Fabien Chouteau <chouteau@adacore.com>
+# Arch Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Arch Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+
+
+_realname=binutils
+_target=riscv64-elf
+
+pkgbase=mingw-w64-${_target}-${_realname}
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
+pkgver=2.34
+pkgrel=1
+pkgdesc='A set of programs to assemble and manipulate binary and object files for the RISCV64 (bare-metal) target'
+arch=('any')
+url="https://www.gnu.org/software/binutils/"
+license=('GPL')
+groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
+depends=(zlib)
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" 
+             texinfo)
+source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-$pkgver.tar.bz2)
+sha256sums=('89f010078b6cf69c23c27897d686055ab89b198dddf819efb0a4f2c38a0b36e6')
+			  
+prepare() {
+  cd "${srcdir}/${_realname}-${pkgver}"
+  sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" libiberty/configure
+}
+
+build() {
+  if check_option "debug" "y"; then
+    CFLAGS+=" -g -O0"
+  fi
+  cd "${srcdir}"
+  rm -rf build-${MINGW_CHOST}
+  mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
+  ../${_realname}-${pkgver}/configure \
+    --build="${MINGW_CHOST}" \
+    --host="${MINGW_CHOST}" \
+    --target="${_target}" \
+    --prefix="${MINGW_PREFIX}" \
+    --with-sysroot="${MINGW_PREFIX}" \
+    --enable-multilib \
+    --enable-interwork \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --disable-nls \
+    --enable-ld=default \
+    --enable-gold \
+    --enable-plugins \
+    --enable-deterministic-archives  
+
+  make
+}
+
+check() {
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  
+  # unset LDFLAGS as testsuite makes assumptions about which ones are active
+  # do not abort on errors - manually check log files
+  make LDFLAGS="" -k check || true
+}
+
+package() {
+  cd "${srcdir}/build-${MINGW_CHOST}"
+  make DESTDIR="${pkgdir}" install
+
+  # Remove unwanted files
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
+}

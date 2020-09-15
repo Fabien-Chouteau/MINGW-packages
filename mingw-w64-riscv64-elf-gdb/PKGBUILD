@@ -1,0 +1,61 @@
+# Maintainer: Fabien Chouteau <chouteau@adacore.com>
+# ArchLinux Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# ArchLinux Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+# ArchLinux Contributor: Martin Schmölzer <mschmoelzer@gmail.com>
+
+_realname=gdb
+_target=riscv64-elf
+
+pkgbase=mingw-w64-${_target}-${_realname}
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
+pkgver=9.2
+pkgrel=1
+pkgdesc="The GNU Debugger for the RISC-V (bare-metal) target"
+arch=('any')
+url="https://www.gnu.org/software/gdb/"
+license=('GPL3')
+groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
+depends=("${MINGW_PACKAGE_PREFIX}-readline"
+         "${MINGW_PACKAGE_PREFIX}-zlib"
+         "${MINGW_PACKAGE_PREFIX}-xz"
+         "${MINGW_PACKAGE_PREFIX}-ncurses"
+         "${MINGW_PACKAGE_PREFIX}-expat"
+         "${MINGW_PACKAGE_PREFIX}-python"
+         "${MINGW_PACKAGE_PREFIX}-mpfr")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
+options=('staticlibs' '!debug' 'strip')
+
+source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-$pkgver.tar.xz)
+sha256sums=('360cd7ae79b776988e89d8f9a01c985d0b1fa21c767a4295e5f88cb49175c555')
+
+build() {
+  # Build GDB
+  cd $srcdir
+  rm -rf build-${MINGW_CHOST}
+  mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
+  ../${_realname}-${pkgver}/configure \
+    --build="${MINGW_CHOST}" \
+    --host="${MINGW_CHOST}" \
+    --target="${_target}" \
+    --prefix="${MINGW_PREFIX}" \
+    --enable-languages=c,c++,ada \
+    --enable-multilib \
+    --enable-interwork \
+    --with-system-readline \
+    --disable-nls \
+    --with-python="${MINGW_PREFIX}/bin/python"
+
+  make
+}
+
+package() {
+  cd ${srcdir}/build-${MINGW_CHOST}
+  make -j1 DESTDIR=${pkgdir} install
+
+  # Remove files that conflict with host
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/gdb"
+  rm -rf "${pkgdir}${MINGW_PREFIX}/include/gdb/jit-reader.h"
+  rm -rf "${pkgdir}${MINGW_PREFIX}/lib/libiberty.a"
+}
+

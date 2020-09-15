@@ -1,0 +1,98 @@
+# Maintainer: Fabien Chouteau <chouteau@adacore.com>
+# ArchLinux Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# ArchLinux  Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+
+_realname=newlib
+_target=riscv64-elf
+
+pkgbase=mingw-w64-${_target}-${_realname}
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
+pkgver=3.3.0
+pkgrel=1
+pkgdesc="A C standard library implementation intended for use on embedded systems (RISC-V bare metal)"
+arch=('any')
+url="https://sourceware.org/newlib/"
+license=('BSD')
+groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
+makedepends=("${MINGW_PACKAGE_PREFIX}-${_target}-gcc-base")
+options=('staticlibs' '!strip' '!emptydirs')
+source=(https://sourceware.org/pub/${_realname}/${_realname}-$pkgver.tar.gz)
+sha256sums=('58dd9e3eaedf519360d92d84205c3deef0b3fc286685d1c562e245914ef72c66')
+noextract=("${_realname}-${pkgver}.tar.gz")
+
+prepare() {
+  [[ -d "${_realname}-${pkgver}" ]] && rm -rf "${_realname}-${pkgver}"
+  tar zxf "${srcdir}/${_realname}-${pkgver}.tar.gz" || true
+  MSYS=winsymlinks:lnk tar zxf "${srcdir}/${_realname}-${pkgver}.tar.gz"
+}
+
+build() {
+  CFLAGS_FOR_TARGET=" -g -O2 -ffunction-sections -fdata-sections"
+  export CFLAGS_FOR_TARGET
+
+  cd $srcdir
+  rm -rf build-${MINGW_CHOST}-newlib
+  mkdir -p build-${MINGW_CHOST}-newlib && cd build-${MINGW_CHOST}-newlib
+  ../${_realname}-${pkgver}/configure \
+    --build=${MINGW_CHOST} \
+    --host=${MINGW_CHOST} \
+    --target=${_target} \
+    --prefix=${MINGW_PREFIX} \
+	--enable-multilib \
+    --enable-newlib-io-long-long \
+    --enable-newlib-io-c99-formats \
+    --enable-newlib-register-fini \
+    --enable-newlib-retargetable-locking \
+    --disable-newlib-supplied-syscalls \
+    --disable-nls \
+    --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
+    --with-sysroot="${MINGW_PREFIX}" \
+
+  make
+
+  # Nano, a build optimized for size
+  CFLAGS_FOR_TARGET=" -g -Os -ffunction-sections -fdata-sections"
+  export CFLAGS_FOR_TARGET
+  
+  cd $srcdir
+  rm -rf build-${MINGW_CHOST}-nano
+  mkdir -p build-${MINGW_CHOST}-nano && cd build-${MINGW_CHOST}-nano
+  ../${_realname}-${pkgver}/configure \
+    --build=${MINGW_CHOST} \
+    --host=${MINGW_CHOST} \
+    --target=${_target} \
+    --prefix=${MINGW_PREFIX} \
+	--enable-multilib \
+    --disable-newlib-supplied-syscalls \
+    --enable-newlib-reent-small \
+    --enable-newlib-retargetable-locking \
+    --disable-newlib-fvwrite-in-streamio \
+    --disable-newlib-fseek-optimization \
+    --disable-newlib-wide-orient \
+    --enable-newlib-nano-malloc \
+    --disable-newlib-unbuf-stream-opt \
+    --enable-lite-exit \
+    --enable-newlib-global-atexit \
+    --enable-newlib-nano-formatted-io \
+    --disable-nls \
+    --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
+    --with-sysroot="${MINGW_PREFIX}" \
+
+  make
+}
+
+package() {
+
+  # install nano
+  cd ${srcdir}/build-${MINGW_CHOST}-nano
+  make -j1 DESTDIR=${pkgdir} install
+  
+  # rename nano libs with _nano suffix
+  find ${pkgdir} -regex ".*/lib\(c\|g\|rdimon\)\.a" -exec rename .a _nano.a '{}' \;
+  install -Dm644 -t ${pkgdir}${MINGW_PREFIX}/${_target}/include/newlib-nano ${pkgdir}${MINGW_PREFIX}/${_target}/include/newlib.h
+  
+  # install standard newlib
+  cd ${srcdir}/build-${MINGW_CHOST}-newlib
+  make -j1 DESTDIR=${pkgdir} install
+
+}
