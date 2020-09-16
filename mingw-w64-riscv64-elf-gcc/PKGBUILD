@@ -81,6 +81,7 @@ build() {
     --enable-languages=${_languages} \
     --enable-plugins \
     --enable-multilib \
+    --enable-libgcc \
     --disable-decimal-float \
     --disable-libffi \
     --disable-libgomp \
