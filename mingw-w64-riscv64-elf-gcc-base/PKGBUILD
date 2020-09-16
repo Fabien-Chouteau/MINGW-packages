@@ -42,10 +42,17 @@ build() {
   cd $srcdir
   rm -rf build-${MINGW_CHOST}
   mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
+
   unset CFLAGS
   unset CXXFLAGS
-  CFLAGS="-g -O3 -fdata-sections -ffunction-sections"
-  CXXFLAGS="${CFLAGS}"
+  export CFLAGS="-g -O3 -fdata-sections -ffunction-sections"
+  export CXXFLAGS="${CFLAGS}"
+
+  local _GCC_LDFLAGS="${LDFLAGS} -Wl,--disable-dynamicbase"
+  if [ "${CARCH}" = 'x86_64' ]; then
+    _GCC_LDFLAGS+=",--image-base=0x400000"
+  fi
+	
   ../gcc-${pkgver}/configure \
     --build="${MINGW_CHOST}" \
     --host="${MINGW_CHOST}" \
@@ -69,7 +76,8 @@ build() {
     --with-python-dir="share/${_target}-${_realname}" \
     --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
     --with-host-libstdcxx="-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
-    --disable-multilib
+    --disable-multilib \
+    LDFLAGS="${_GCC_LDFLAGS}"
 
   make all-gcc
 }
