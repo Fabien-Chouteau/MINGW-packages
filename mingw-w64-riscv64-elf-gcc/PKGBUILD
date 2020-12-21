@@ -1,0 +1,126 @@
+# Maintainer: Fabien Chouteau <chouteau@adacore.com>
+# ArchLinux Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# ArchLinux Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+# ArchLinux Contributor: Martin Schmölzer <mschmoelzer@gmail.com>
+
+_realname=gcc
+_target=riscv64-elf
+_enable_ada=yes
+
+pkgbase=mingw-w64-${_target}-${_realname}
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_target}-${_realname}")
+pkgver=10.1.0
+_islver=0.22
+pkgrel=1
+pkgdesc="The GNU Compiler Collection - cross compiler for ARM EABI (bare-metal) target"
+arch=('any')
+url='https://gcc.gnu.org/'
+license=(GPL LGPL FDL)
+groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
+
+# Ada support is provided in the same package
+provides=("${MINGW_PACKAGE_PREFIX}-${_target}-ada")
+
+depends=("${MINGW_PACKAGE_PREFIX}-${_target}-newlib"
+         "${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
+		 "${MINGW_PACKAGE_PREFIX}-zlib")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
+             $([[ "$_enable_ada" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-gcc-ada"))
+
+# This package conflicts with the cross gcc-base used to compile newlib
+conflicts=("${MINGW_PACKAGE_PREFIX}-${_target}-gcc-base")
+
+options=('staticlibs' '!debug' '!strip')
+
+source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz
+        http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
+sha256sums=('b6898a23844b656f1b68691c5c012036c2e694ac4b53a8918d4712ad876e7ea2'
+            'b21d354acd613a91cb88328753ec3aaeb174d6af042d89c5fcf3bbcced370751')
+
+prepare() {
+
+  cd "$srcdir/gcc-$pkgver"
+
+  # copy isl for in-tree builds
+  cp -r ../isl-$_islver isl
+
+  echo $pkgver > gcc/BASE-VER
+
+  # hack! - some configure tests for header files using "$CPP $CPPFLAGS"
+  sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" {libiberty,gcc}/configure
+}
+
+build() {
+  # Build GCC
+  cd $srcdir
+  rm -rf build-${MINGW_CHOST}
+  mkdir -p build-${MINGW_CHOST} && cd build-${MINGW_CHOST}
+
+  local _languages="c"
+  if [ "$_enable_ada" == "yes" ]; then
+    _languages+=",ada"
+  fi
+
+  unset CFLAGS
+  unset CXXFLAGS
+  export CFLAGS="-g -O3 -fdata-sections -ffunction-sections"
+  export CXXFLAGS="${CFLAGS}"  
+
+  local _GCC_LDFLAGS="${LDFLAGS} -Wl,--disable-dynamicbase"
+  if [ "${CARCH}" = 'x86_64' ]; then
+    _GCC_LDFLAGS+=",--image-base=0x400000"
+  fi
+  
+  ../gcc-${pkgver}/configure \
+    --build="${MINGW_CHOST}" \
+    --host="${MINGW_CHOST}" \
+    --target="${_target}" \
+    --prefix="${MINGW_PREFIX}" \
+    --with-sysroot="${MINGW_PREFIX}" \
+    --with-native-system-header-dir=/include \
+    --enable-languages=${_languages} \
+    --enable-plugins \
+    --enable-multilib \
+    --enable-libgcc \
+    --disable-decimal-float \
+    --disable-libffi \
+    --disable-libgomp \
+    --disable-libmudflap \
+    --disable-libquadmath \
+    --disable-libssp \
+    --disable-libstdcxx-pch \
+    --disable-nls \
+    --disable-shared \
+    --disable-threads \
+    --disable-tls \
+    --disable-libada \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --with-system-zlib \
+    --with-newlib \
+    --with-python-dir="share/${_target}-${_realname}" \
+    --with-libelf \
+    --with-isl \
+    --enable-gnu-indirect-function \
+    --with-python-dir="share/${_target}-${_realname}" \
+    --with-{gmp,mpfr,mpc,isl,cloog}="${MINGW_PREFIX}" \
+    --with-host-libstdcxx="-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
+    LDFLAGS="${_GCC_LDFLAGS}"
+
+  make
+
+  if [ "$_enable_ada" == "yes" ]; then
+    make -C gcc cross-gnattools
+    make -C gcc ada.all.cross
+  fi
+}
+
+package() {
+  cd ${srcdir}/build-${MINGW_CHOST}
+  make -j1 DESTDIR=${pkgdir} install
+
+  # Remove files that conflict with host
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/info"
+  rm -rf "${pkgdir}${MINGW_PREFIX}/share/man/man7"
+}
+
